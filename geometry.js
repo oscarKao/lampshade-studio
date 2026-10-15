@@ -2,7 +2,7 @@
 (function(root){
 const TAU=Math.PI*2,clamp=(x,a,b)=>Math.max(a,Math.min(b,x)),round=x=>+x.toFixed(3);
 const presets={lantern:[75,113,130,113,75],bell:[135,126,102,76,58],waist:[100,77,66,92,112],cylinder:[100,100,100,100,100]};
-const defaults={mode:'radial',height:300,lowerRing:45,upperRing:258,thickness:3,count:20,width:24,gap:9,fit:0.15,bulbD:60,bulbL:105,hole:40,offset:0,clearance:5,sheetW:600,sheetH:400,spacing:6,autoClear:false,nodes:presets.lantern.map((r,i)=>({t:i/4,r,corner:false}))};
+const defaults={mode:'radial',height:300,lowerRing:45,upperRing:258,thickness:3,count:20,width:24,gap:9,fit:0.15,bulbD:60,bulbL:105,hole:40,offset:0,clearance:5,sheetW:900,sheetH:600,spacing:6,autoClear:false,nodes:presets.lantern.map((r,i)=>({t:i/4,r,corner:false}))};
 const limits={lowerRing:[0,600,.5],upperRing:[0,600,.5],height:[120,600,1],diameter:[60,600,1],thickness:[1,12,.1],count:[6,48,1],width:[12,60,1],gap:[0,30,.5],fit:[-.2,1,.05],bulbD:[20,160,1],bulbL:[40,250,1],hole:[15,100,.5],offset:[-40,80,1],clearance:[0,20,.5],sheetW:[200,1500,10],sheetH:[200,1500,10],spacing:[2,20,1]};
 function migrate(p){if(!p||typeof p!=='object'||Array.isArray(p))throw Error('設計格式不正確');const next={...p};if(next.lowerRing===undefined)next.lowerRing=round(next.height*.15);if(next.upperRing===undefined)next.upperRing=round(next.height*.86);return next}
 function withHeight(p,height){return{...p,height,lowerRing:round(p.lowerRing*height/p.height),upperRing:round(p.upperRing*height/p.height)}}
