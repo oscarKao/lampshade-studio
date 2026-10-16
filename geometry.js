@@ -54,7 +54,7 @@ function transformed(item,pt,dx=0){const b=item.part.bounds,x=pt[0]-b.minX,y=pt[
 function path(poly){return'M'+poly.map(v=>v.map(round).join(',')).join('L')+'Z'}
 // Small vector lettering stays geometry in both SVG and DXF exports.
 const font={R:[[0,1,0,0],[0,0,.6,0],[.6,0,.6,.5],[.6,.5,0,.5],[0,.5,.7,1]],S:[[.7,0,0,0],[0,0,0,.5],[0,.5,.7,.5],[.7,.5,.7,1],[.7,1,0,1]],F:[[0,1,0,0],[0,0,.7,0],[0,.45,.6,.45]],P:[[0,1,0,0],[0,0,.7,0],[.7,0,.7,.5],[.7,.5,0,.5]],0:[[0,0,.6,0],[.6,0,.6,1],[.6,1,0,1],[0,1,0,0]],1:[[.3,0,.3,1]],2:[[0,0,.6,0],[.6,0,.6,.5],[.6,.5,0,.5],[0,.5,0,1],[0,1,.6,1]],3:[[0,0,.6,0],[.6,0,.6,1],[0,.5,.6,.5],[0,1,.6,1]],4:[[0,0,0,.5],[0,.5,.6,.5],[.6,0,.6,1]],5:[[.6,0,0,0],[0,0,0,.5],[0,.5,.6,.5],[.6,.5,.6,1],[.6,1,0,1]],6:[[.6,0,0,0],[0,0,0,1],[0,1,.6,1],[.6,1,.6,.5],[.6,.5,0,.5]],7:[[0,0,.6,0],[.6,0,.3,1]],8:[[0,0,.6,0],[.6,0,.6,1],[.6,1,0,1],[0,1,0,0],[0,.5,.6,.5]],9:[[.6,1,.6,0],[.6,0,0,0],[0,0,0,.5],[0,.5,.6,.5]]};
-function labelLines(part){const size=part.name==='垂直定位支撐'?1.7:2.6;return[...part.id].flatMap((c,i)=>(font[c]||[]).map(l=>[[part.label[0]+(l[0]+i*.9)*size,part.label[1]+l[1]*size],[part.label[0]+(l[2]+i*.9)*size,part.label[1]+l[3]*size]]))}
+function labelLines(part){if(part.engraving)return part.engraving;const size=part.name==='垂直定位支撐'?1.7:2.6;return[...part.id].flatMap((c,i)=>(font[c]||[]).map(l=>[[part.label[0]+(l[0]+i*.9)*size,part.label[1]+l[1]*size],[part.label[0]+(l[2]+i*.9)*size,part.label[1]+l[3]*size]]))}
 function svg(p,data,sheetIndex=null,preview=false){const sheets=sheetIndex===null?data.layout.sheets:[data.layout.sheets[sheetIndex]].filter(Boolean),W=sheetIndex===null?sheets.length*(p.sheetW+20)-20:p.sheetW,H=p.sheetH;let cut='',engrave='';sheets.forEach((sheet,s)=>{const dx=sheetIndex===null?s*(p.sheetW+20):0;if(preview)cut+=`<rect x="${dx}" y="0" width="${p.sheetW}" height="${H}" fill="#fbfaf6" stroke="#b9b7ad" stroke-width="1"/>`;for(const item of sheet.items){cut+=`<path d="${[item.part.outer,...item.part.holes].map(poly=>path(poly.map(pt=>transformed(item,pt,dx)))).join('')}" ${preview?'fill="#e7d1a8" fill-rule="evenodd"':'fill="none"'} stroke="#244d79" stroke-width="${preview?.55:.1}"/>`;for(const line of labelLines(item.part)){const a=transformed(item,line[0],dx),b=transformed(item,line[1],dx);engrave+=`<path d="M${a.map(round)}L${b.map(round)}"/>`}}});return`<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(1,W)}mm" height="${H}mm" viewBox="0 0 ${Math.max(1,W)} ${H}"><title>SliceVerse — nominal contours, millimeters</title><g id="CUT">${cut}</g><g id="ENGRAVE" fill="none" stroke="#b77b27" stroke-width="${preview?.4:.1}">${engrave}</g></svg>`}
 function dxf(p,data){
 // R12 ASCII: legacy POLYLINE/VERTEX, explicit tables, no subclass markers or fonts.
@@ -71,5 +71,13 @@ entity('POLYLINE',layer);tag(66,1);tag(10,0);tag(20,0);tag(30,0);tag(70,closed?1
 data.layout.sheets.forEach((s,i)=>{for(const item of s.items){for(const pts of[item.part.outer,...item.part.holes])poly(pts.map(v=>transformed(item,v,i*(p.sheetW+20))),true,'CUT');for(const pts of labelLines(item.part))poly(pts.map(v=>transformed(item,v,i*(p.sheetW+20))),false,'ENGRAVE')}});
 tag(0,'ENDSEC');tag(0,'EOF');lines[lines.indexOf('SEED')]=handle.toString(16).toUpperCase();return lines.join('\r\n')+'\r\n';}
 
-root.LampGeometry={defaults,presets,limits,valid,migrate,withHeight,radius,maxR,generate,pack,svg,dxf,rotate,round,bounds,path,labelLines};if(typeof module!=='undefined')module.exports=root.LampGeometry;
+function couponDXF(thickness){
+if(!Number.isFinite(thickness)||thickness<limits.thickness[0]||thickness>limits.thickness[1])throw Error('板厚超出範圍');
+const widths=[-.15,0,.15,.3,.45].map(d=>round(thickness+d)),outer=[[0,0],[130,0],[130,40],[0,40]],holes=[],engraving=[];
+const glyphs={...font,'.':[[.2,.95,.3,.95]],m:[[0,1,0,.4],[0,.4,.3,.4],[.3,.4,.3,1],[.3,.4,.6,.4],[.6,.4,.6,1]]};
+widths.forEach((w,i)=>{const x=12+i*24;holes.push([[x-w/2,8],[x+w/2,8],[x+w/2,26],[x-w/2,26]]);const text=w.toFixed(2)+' mm',size=3,start=x-(text.length*.9-.3)*size/2;[...text].forEach((c,j)=>{for(const l of glyphs[c]||[])engraving.push([[start+(l[0]+j*.9)*size,31+l[1]*size],[start+(l[2]+j*.9)*size,31+l[3]*size]])})});
+const part={id:'COUPON',name:'插槽試切片',outer,holes,engraving,bounds:bounds(outer)};
+return dxf({sheetW:130,sheetH:40},{layout:{sheets:[{items:[{part,x:0,y:0,rot:false}]}]}});
+}
+root.LampGeometry={defaults,presets,limits,valid,migrate,withHeight,radius,maxR,generate,pack,svg,dxf,couponDXF,rotate,round,bounds,path,labelLines};if(typeof module!=='undefined')module.exports=root.LampGeometry;
 })(typeof globalThis!=='undefined'?globalThis:this);
